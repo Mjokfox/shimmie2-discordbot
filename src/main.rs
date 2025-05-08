@@ -56,8 +56,8 @@ async fn main() -> std::io::Result<()> {
         http: client.lock().await.http.clone(), 
         db_pool: connection
     });
-
-    let udpclient = UdpClient::new("0.0.0.0:10004", handler).await?;
+    let udp_url = std::env::var("updUrl").expect("Expected a token in the environment");
+    let udpclient = UdpClient::new(&udp_url, handler).await?;
 
     let discord_task = {
         let client_clone = client.clone();
