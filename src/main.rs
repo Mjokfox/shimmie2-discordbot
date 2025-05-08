@@ -52,7 +52,7 @@ async fn main() -> std::io::Result<()> {
     
     let connection = establish_pool();
 
-    let handler = Arc::new(MyHandler {
+    let handler = Arc::new(JsonHandler {
         http: client.lock().await.http.clone(), 
         db_pool: connection
     });
@@ -80,18 +80,18 @@ async fn main() -> std::io::Result<()> {
     Ok(())
 }
 
-pub struct MyHandler {
-    pub http: Arc<Http>,
-    pub db_pool: DbPool,
+struct JsonHandler {
+    http: Arc<Http>,
+    db_pool: DbPool,
 }
 #[async_trait]
-impl UdpHandler for MyHandler {
+impl UdpHandler for JsonHandler {
     async fn on_receive(&self, _len: usize, addr: SocketAddr, msg: &[u8]) {
         match serde_json::from_slice::<ShimmieJson>(msg) {
             Ok(msg) => {
                 match msg.section {
-                    ShimmieSections::COMMENT => self.comment_handler(msg.r#type,msg.fields).await,
-                    ShimmieSections::IMAGE => self.image_handler(msg.r#type,msg.fields).await,
+                    ShimmieSections::Comment => self.comment_handler(msg.r#type,msg.fields).await,
+                    ShimmieSections::Image => self.image_handler(msg.r#type,msg.fields).await,
                     _ => {}
                 }
             }

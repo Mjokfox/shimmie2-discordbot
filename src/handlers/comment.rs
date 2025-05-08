@@ -1,11 +1,10 @@
 use std::sync::Arc;
 
-use crate::{models::shimmie_json::{Fields, ShimmieSectionTypes}, MyHandler};
-use findafoxbot::{create_comment, delete_comment, get_message_from_comment_id, get_message_from_post_id, DbPool};
+use crate::{models::shimmie_json::{Fields, ShimmieSectionTypes}, JsonHandler, create_comment, delete_comment, get_message_from_comment_id, get_message_from_post_id, DbPool};
 use serenity::all::{ChannelId, CreateEmbed, CreateMessage, EditMessage, Http, MessageId, MessageReference, MessageReferenceKind, Timestamp};
 
-impl MyHandler {
-    pub async fn comment_handler(&self,r#type: &str, fields: Fields ) {
+impl JsonHandler {
+    pub async fn comment_handler(&self,r#type: ShimmieSectionTypes, fields: Fields ) {
         match std::env::var("channelID") {
             Ok(id) =>{
                 let handler = CommentHandler {
@@ -14,10 +13,9 @@ impl MyHandler {
                     ch: ChannelId::new(id.parse::<u64>().unwrap())
                 };
                 match r#type {
-                    ShimmieSectionTypes::CREATE => handler.create(fields).await,
-                    ShimmieSectionTypes::EDIT => handler.edit(fields).await,
-                    ShimmieSectionTypes::DELETE => handler.delete(fields).await,
-                    _ => ()
+                    ShimmieSectionTypes::Create => handler.create(fields).await,
+                    ShimmieSectionTypes::Edit => handler.edit(fields).await,
+                    ShimmieSectionTypes::Delete => handler.delete(fields).await
                 }
             },
             Err(_) => {
