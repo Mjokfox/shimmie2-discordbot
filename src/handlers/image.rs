@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{models::shimmie_json::{Fields, ShimmieSectionTypes}, MyHandler};
 use findafoxbot::{create_post, delete_post, get_message_from_post_id, get_comment_messages_from_post_id, delete_comments_with_post_id, DbPool};
-use serenity::all::{ChannelId, CreateEmbed, CreateMessage, EditMessage, Http, MessageId, Timestamp};
+use serenity::all::{ChannelId, ChannelType, CreateEmbed, CreateMessage, EditMessage, Http, MessageId, Timestamp};
 use mime_serde_shim::Wrapper as Mime;
 use mime_guess::get_mime_extensions;
 
@@ -54,6 +54,11 @@ impl ImageHandler {
                         create_post(&mut conn, &fields.post_id.unwrap_or_default(), &message.id.into());
                     },
                     Err(why) => println!("db ded {why:?}")
+                }
+                if let Ok(channel) = self.ch.to_channel(self.http.clone()).await {
+                    if channel.guild().unwrap_or_default().kind == ChannelType::News {
+                        let _ = message.crosspost(self.http.clone()).await;
+                    }
                 }
             },
             Err(why) => println!("Error sending post: {why:?}")
