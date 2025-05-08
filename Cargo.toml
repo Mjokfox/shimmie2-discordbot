@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-dotenv = "0.15.0"
+dotenvy = "0.15"
 serenity = "0.12"
 serde = "1.0.219"
 serde_json = "1.0.140"
@@ -12,3 +12,4 @@ tokio = { version = "1.21.2", features = ["macros", "rt-multi-thread", "signal"]
 mime = "0.3.17"
 mime_serde_shim = "0.2"
 mime_guess = "2.0.5"
+diesel = { version = "2.2.0", features = ["sqlite", "returning_clauses_for_sqlite_3_35", "r2d2"] }

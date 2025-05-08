@@ -1,27 +1,30 @@
+use findafoxbot::*;
 use models::shimmie_json::{ShimmieJson, ShimmieSections};
-use handlers::comment::comment_handler;
-use handlers::image::image_handler;
 use serenity::all::{ChannelId, Http, Ready};
 use udp_client::{UdpClient, UdpHandler};
 use std::sync::Arc;
+use dotenvy::dotenv;
+use std::env;
 
 use serenity::async_trait;
 use serenity::prelude::*;
 
 use core::net::SocketAddr;
 
+pub mod schema;
 mod udp_client;
-mod models;
+pub mod models;
 mod handlers;
+
 struct Handler;
 
 #[async_trait]
 impl EventHandler for Handler {
     async fn ready(&self, ctx: Context, ready: Ready) {
-        match std::env::var("logchannelID") {
+        match env::var("logchannelID") {
             Ok(id) =>{
                 let ch = ChannelId::new(id.parse::<u64>().unwrap());
-                if let Err(why) = ch.say(&ctx.http, "<:helperfox:1351307021340639374> testing from rust aaaaaaaaa").await {
+                if let Err(why) = ch.say(&ctx.http, "<:helperfox:1351307021340639374> hewo from rust uwu").await {
                     println!("Error sending message: {why:?}");
                 }
             },
@@ -36,7 +39,7 @@ impl EventHandler for Handler {
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
-    dotenv::dotenv().ok();
+    dotenv().ok();
     let token = std::env::var("DISCORD_TOKEN").expect("Expected a token in the environment");
     let intents = GatewayIntents::GUILDS | GatewayIntents::GUILD_MESSAGES;
 
@@ -47,9 +50,11 @@ async fn main() -> std::io::Result<()> {
             .expect("Err creating client"),
     ));
     
+    let connection = establish_pool();
 
     let handler = Arc::new(MyHandler {
         http: client.lock().await.http.clone(), 
+        db_pool: connection
     });
 
     let udpclient = UdpClient::new("0.0.0.0:10004", handler).await?;
@@ -76,7 +81,8 @@ async fn main() -> std::io::Result<()> {
 }
 
 pub struct MyHandler {
-    http: Arc<Http>
+    pub http: Arc<Http>,
+    pub db_pool: DbPool,
 }
 #[async_trait]
 impl UdpHandler for MyHandler {
@@ -84,8 +90,8 @@ impl UdpHandler for MyHandler {
         match serde_json::from_slice::<ShimmieJson>(msg) {
             Ok(msg) => {
                 match msg.section {
-                    ShimmieSections::COMMENT => comment_handler(self.http.clone(), msg.r#type,msg.fields).await,
-                    ShimmieSections::IMAGE => image_handler(self.http.clone(), msg.r#type,msg.fields).await,
+                    ShimmieSections::COMMENT => self.comment_handler(msg.r#type,msg.fields).await,
+                    ShimmieSections::IMAGE => self.image_handler(msg.r#type,msg.fields).await,
                     _ => {}
                 }
             }

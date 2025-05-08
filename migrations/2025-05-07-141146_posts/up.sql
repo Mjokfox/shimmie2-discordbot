@@ -1,0 +1,4 @@
+CREATE TABLE posts (
+  post_id INTEGER NOT NULL PRIMARY KEY,
+  message_id BIGINT UNSIGNED NOT NULL
+)

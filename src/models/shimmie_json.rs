@@ -11,7 +11,7 @@ impl ShimmieSections {
     pub const USER: &str = "user";
 }
 
-pub struct ShimmieSectionTypes{}
+pub enum ShimmieSectionTypes{}
 
 #[allow(dead_code)]
 impl ShimmieSectionTypes {
@@ -20,14 +20,14 @@ impl ShimmieSectionTypes {
     pub const DELETE: &str = "delete";
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
 pub struct Fields {
-    pub post_id: Option<i64>,
+    pub post_id: Option<i32>,
     pub username: Option<String>,
     pub hash: Option<String>,
     pub mime: Option<Mime>,
-    pub size: Option<i64>,
-    pub comment_id: Option<i64>,
+    pub size: Option<i32>,
+    pub comment_id: Option<i32>,
     pub message: Option<String>
 }
 
@@ -36,10 +36,4 @@ pub struct ShimmieJson<'a> {
     pub section: &'a str,
     pub r#type: &'a str,
     pub fields: Fields
-}
-
-impl Default for Fields {
-    fn default() -> Self { // TODO fix mime
-        Self { post_id: Default::default(), username: Default::default(), hash: Default::default(), mime: Default::default(), size: Default::default(), comment_id: Default::default(), message: Default::default() }
-    }
 }

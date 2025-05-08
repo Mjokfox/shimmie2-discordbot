@@ -1,0 +1,5 @@
+CREATE TABLE comments (
+  comment_id INTEGER NOT NULL PRIMARY KEY,
+  post_id INTEGER NOT NULL,
+  message_id BIGINT UNSIGNED NOT NULL
+)
