@@ -4,11 +4,11 @@ use crate::schema::*;
 #[derive(Queryable, Selectable)]
 #[diesel(table_name = posts)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+#[allow(dead_code)]
 pub struct Post {
     pub post_id: i32,
     pub message_id: i64
 }
-
 
 #[derive(Insertable)]
 #[diesel(table_name = posts)]
@@ -20,6 +20,7 @@ pub struct NewPost<'a> {
 #[derive(Queryable, Selectable)]
 #[diesel(table_name = comments)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+#[allow(dead_code)]
 pub struct Comment {
     pub comment_id: i32,
     pub post_id: i32,

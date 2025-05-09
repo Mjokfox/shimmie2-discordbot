@@ -1,5 +1,7 @@
-use findafoxbot::*;
-use models::shimmie_json::{ShimmieJson, ShimmieSections};
+use dbfn::*;
+use handlers::{comment::CommentHandler, image::ImageHandler, logging::LoggingHandler, user::UserHandler};
+use models::shimmie_json::{HandlerTrait, ShimmieSectionTypes};
+use models::shimmie_json::{ShimmieJson, ShimmieSections, HandlerEnum};
 use serenity::all::{ChannelId, Http, Ready};
 use udp_client::{UdpClient, UdpHandler};
 use std::sync::Arc;
@@ -11,9 +13,10 @@ use serenity::prelude::*;
 
 use core::net::SocketAddr;
 
+mod dbfn;
 pub mod schema;
 mod udp_client;
-pub mod models;
+mod models;
 mod handlers;
 
 struct Handler;
@@ -35,12 +38,26 @@ impl EventHandler for Handler {
         println!("{} is connected!", ready.user.name);
     }
 }
-            
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
     let token = std::env::var("DISCORD_TOKEN").expect("Expected a token in the environment");
+    let ch = ChannelId::new(
+        std::env::var("channelID")
+        .expect("Expected a channelID in the environment")
+        .parse::<u64>()
+        .unwrap()
+    );
+    let lch = ChannelId::new(
+        std::env::var("logchannelID")
+        .expect("Expected a logchannelID in the environment")
+        .parse::<u64>()
+        .unwrap()
+    );
+    let server_url = std::env::var("serverUrl").expect("Expected a serverUrl in the environment");
+    let udp_url = std::env::var("updUrl").expect("Expected a updUrl in the environment");
+
     let intents = GatewayIntents::GUILDS | GatewayIntents::GUILD_MESSAGES;
 
     let client = Arc::new(Mutex::new(
@@ -54,9 +71,12 @@ async fn main() -> std::io::Result<()> {
 
     let handler = Arc::new(JsonHandler {
         http: client.lock().await.http.clone(), 
-        db_pool: connection
+        db_pool: connection,
+        ch,
+        lch,
+        server_url
     });
-    let udp_url = std::env::var("updUrl").expect("Expected a token in the environment");
+
     let udpclient = UdpClient::new(&udp_url, handler).await?;
 
     let discord_task = {
@@ -83,16 +103,25 @@ async fn main() -> std::io::Result<()> {
 struct JsonHandler {
     http: Arc<Http>,
     db_pool: DbPool,
+    ch: ChannelId,
+    lch: ChannelId,
+    server_url: String
 }
 #[async_trait]
 impl UdpHandler for JsonHandler {
     async fn on_receive(&self, _len: usize, addr: SocketAddr, msg: &[u8]) {
         match serde_json::from_slice::<ShimmieJson>(msg) {
             Ok(msg) => {
-                match msg.section {
-                    ShimmieSections::Comment => self.comment_handler(msg.r#type,msg.fields).await,
-                    ShimmieSections::Image => self.image_handler(msg.r#type,msg.fields).await,
-                    _ => {}
+                let handler = match msg.section {
+                    ShimmieSections::Comment => HandlerEnum::Comment(CommentHandler { http: self.http.clone(), db_pool: self.db_pool.clone(), ch: self.ch, server_url: self.server_url.clone() }),
+                    ShimmieSections::Post => HandlerEnum::Post(ImageHandler { http: self.http.clone(), db_pool: self.db_pool.clone(), ch: self.ch, server_url: self.server_url.clone() }),
+                    ShimmieSections::User => HandlerEnum::User(UserHandler { http: self.http.clone(), ch: self.lch, server_url: self.server_url.clone() }),
+                    ShimmieSections::Log => HandlerEnum::Log(LoggingHandler { }),
+                };
+                match msg.r#type {
+                    ShimmieSectionTypes::Create => handler.create(msg.fields).await,
+                    ShimmieSectionTypes::Edit => handler.edit(msg.fields).await,
+                    ShimmieSectionTypes::Delete => handler.delete(msg.fields).await
                 }
             }
             Err(e) => {

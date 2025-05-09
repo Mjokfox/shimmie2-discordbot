@@ -1,45 +1,24 @@
 use std::sync::Arc;
 
-use crate::{models::shimmie_json::{Fields, ShimmieSectionTypes}, JsonHandler, create_post, delete_post, get_message_from_post_id, get_comment_messages_from_post_id, delete_comments_with_post_id, DbPool};
+use crate::{create_post, delete_comments_with_post_id, delete_post, get_comment_messages_from_post_id, get_message_from_post_id, models::shimmie_json::{Fields, HandlerTrait}, DbPool};
 use serenity::all::{ChannelId, ChannelType, CreateEmbed, CreateMessage, EditMessage, Http, MessageId, Timestamp};
 use mime_serde_shim::Wrapper as Mime;
 use mime_guess::get_mime_extensions;
 
-impl JsonHandler {
-    pub async fn image_handler(&self,r#type: ShimmieSectionTypes, fields: Fields ) {
-        match std::env::var("channelID") {
-            Ok(id) =>{
-                let handler = ImageHandler {
-                    http: self.http.clone(),
-                    db_pool: self.db_pool.clone(),
-                    ch: ChannelId::new(id.parse::<u64>().unwrap())
-                };
-                match r#type {
-                    ShimmieSectionTypes::Create => handler.create(fields).await,
-                    ShimmieSectionTypes::Edit => handler.edit(fields).await,
-                    ShimmieSectionTypes::Delete => handler.delete(fields).await
-                }
-            },
-            Err(_) => {
-                eprintln!("No channel id given");
-            }
-        };
-    }
-}
-
-struct ImageHandler {
+pub struct ImageHandler {
     pub http: Arc<Http>,
     pub db_pool: DbPool,
-    pub ch: ChannelId
+    pub ch: ChannelId,
+    pub server_url: String
 }
 
-impl ImageHandler {
+impl HandlerTrait for ImageHandler {
     async fn create(&self, fields: Fields) {
         let embed = self.embed(
-            fields.post_id.unwrap_or_default(), 
-            fields.username.unwrap_or_default(), 
-            fields.hash.unwrap_or_default(), 
-            fields.mime.unwrap_or(mime_serde_shim::Wrapper(mime::IMAGE_JPEG)), 
+            fields.post_id.unwrap_or_default(),
+            fields.username.unwrap_or_default(),
+            fields.hash.unwrap_or_default(),
+            fields.mime.unwrap_or(mime_serde_shim::Wrapper(mime::IMAGE_JPEG)),
             fields.size.unwrap_or_default()
         );
         let builder = CreateMessage::new().embed(embed);
@@ -106,7 +85,10 @@ impl ImageHandler {
             Err(_) => println!("Post deletion failed")
         }
     }
+}
 
+
+impl ImageHandler {
     fn get_supported_extension(mime: &Mime) -> Option<&'static str> {
         let supported_extensions = ["jpg", "jpeg", "png", "gif", "webp", "mp4", "webm", "mov"]; // Add only the extensions you want
     
@@ -115,10 +97,6 @@ impl ImageHandler {
     }
     
     fn embed(&self, post_id: i32, username: String, hash: String, post_mime: Mime, size: i32) -> CreateEmbed {
-        let server_url = match std::env::var("serverUrl") {
-            Ok(a) => a,
-            Err(_) => {"https://example.com".to_string()}
-        };
         let mut path = "thumbs";
         let mut fext = "jpg";
         if post_mime.type_() != mime::VIDEO {
@@ -130,9 +108,9 @@ impl ImageHandler {
         CreateEmbed::new()
             .color(0xff8c00)
             .title(format!("New post! >>{}", post_id))
-            .url(format!("{}/post/view/{}",server_url,post_id))
-            .image(format!("{}/{}/{}/{}.{}",server_url,path,hash,post_id,fext))
-            .description(format!("By [{}]({}/user/{})",username,server_url,username))
+            .url(format!("{}/post/view/{}", self.server_url, post_id))
+            .image(format!("{}/{}/{}/{}.{}", self.server_url, path, hash, post_id, fext))
+            .description(format!("By [{}]({}/user/{})",username, self.server_url, username))
             .timestamp(Timestamp::now())
     }
 }

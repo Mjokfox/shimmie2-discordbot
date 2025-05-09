@@ -1,38 +1,16 @@
 use std::sync::Arc;
 
-use crate::{models::shimmie_json::{Fields, ShimmieSectionTypes}, JsonHandler, create_comment, delete_comment, get_message_from_comment_id, get_message_from_post_id, DbPool};
+use crate::{create_comment, delete_comment, get_message_from_comment_id, get_message_from_post_id, models::shimmie_json::{Fields, HandlerTrait}, DbPool};
 use serenity::all::{ChannelId, CreateEmbed, CreateMessage, EditMessage, Http, MessageId, MessageReference, MessageReferenceKind, Timestamp};
 
-impl JsonHandler {
-    pub async fn comment_handler(&self,r#type: ShimmieSectionTypes, fields: Fields ) {
-        match std::env::var("channelID") {
-            Ok(id) =>{
-                let handler = CommentHandler {
-                    http: self.http.clone(),
-                    db_pool: self.db_pool.clone(),
-                    ch: ChannelId::new(id.parse::<u64>().unwrap())
-                };
-                match r#type {
-                    ShimmieSectionTypes::Create => handler.create(fields).await,
-                    ShimmieSectionTypes::Edit => handler.edit(fields).await,
-                    ShimmieSectionTypes::Delete => handler.delete(fields).await
-                }
-            },
-            Err(_) => {
-                eprintln!("No channel id given");
-            }
-        };
-    }
-}
-
-
-struct CommentHandler {
+pub struct CommentHandler {
     pub http: Arc<Http>,
     pub db_pool: DbPool,
-    pub ch: ChannelId
+    pub ch: ChannelId,
+    pub server_url: String
 }
 
-impl CommentHandler {
+impl HandlerTrait for CommentHandler {
     async fn create(&self, fields: Fields) {
         let embed = self.embed(
             fields.post_id.unwrap_or_default(), 
@@ -98,16 +76,14 @@ impl CommentHandler {
             Err(_) => println!("Comment deleting failed")
         }
     }
+}
 
+impl CommentHandler {
     fn embed(&self, post_id: i32, username: String, comment_id: i32, comment: String) -> CreateEmbed {
-        let server_url = match std::env::var("serverUrl") {
-            Ok(a) => a,
-            Err(_) => {"https://example.com".to_string()}
-        };
         CreateEmbed::new()
             .color(0xff8c00)
             .title(format!("New comment on post >>{}", post_id))
-            .url(format!("{}/post/view/{}#{}",server_url,post_id,comment_id))
+            .url(format!("{}/post/view/{}#{}",self.server_url,post_id,comment_id))
             .fields(vec![
                 (username, comment, true),
             ])
