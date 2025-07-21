@@ -27,7 +27,10 @@ impl EventHandler for Handler {
         match env::var("logchannelID") {
             Ok(id) =>{
                 let ch = ChannelId::new(id.parse::<u64>().unwrap());
-                if let Err(why) = ch.say(&ctx.http, "<:helperfox:1351307021340639374> hewo from rust uwu").await {
+                if let Err(why) = ch.say(&ctx.http, "<:helperfox:1351307021340639374> Important announcement!! <:helperfox:1351307021340639374>
+<a:mjokYES:1346197226925326516> I'm back! <a:mjokYES:1346197226925326516> 
+<:mjokboopers:1392163188627476531> Woohoo <:mjokpets:1353839510412071043> 
+<:mjokangy:1368676260653432989> Who turned the power/internet off <:mjoknibble:1368676286247207043>").await {
                     println!("Error sending message: {why:?}");
                 }
             },

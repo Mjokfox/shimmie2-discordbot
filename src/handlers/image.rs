@@ -21,24 +21,35 @@ impl HandlerTrait for ImageHandler {
             fields.mime.unwrap_or(mime_serde_shim::Wrapper(mime::IMAGE_JPEG)),
             fields.size.unwrap_or_default()
         );
-        let builder = CreateMessage::new().embed(embed);
-        let mess = self.ch.send_message(self.http.clone(), builder).await;
-        match mess {
-            Ok(message) => {
-                let res = self.db_pool.get();
-                match res {
-                    Ok(mut conn) => {
-                        create_post(&mut conn, &fields.post_id.unwrap_or_default(), &message.id.into());
+        let res = self.db_pool.get();
+        match res {
+            Ok(mut conn) => {
+                let post_id = &fields.post_id.unwrap_or_default();
+                let existing = get_message_from_post_id(&mut conn, post_id);
+                match existing {
+                    Ok(m) => {
+                        let message_id = MessageId::new(m.try_into().unwrap());
+                        let builder = EditMessage::new().embed(embed);
+                        let _ = self.ch.edit_message(self.http.clone(), message_id, builder).await;
                     },
-                    Err(why) => println!("db ded {why:?}")
-                }
-                if let Ok(channel) = self.ch.to_channel(self.http.clone()).await {
-                    if channel.guild().unwrap_or_default().kind == ChannelType::News {
-                        let _ = message.crosspost(self.http.clone()).await;
+                    Err(_) => {
+                        let builder = CreateMessage::new().embed(embed);
+                        let mess = self.ch.send_message(self.http.clone(), builder).await;
+                        match mess {
+                            Ok(message) => {    
+                                if let Ok(channel) = self.ch.to_channel(self.http.clone()).await {
+                                    if channel.guild().unwrap_or_default().kind == ChannelType::News {
+                                        let _ = message.crosspost(self.http.clone()).await;
+                                    }
+                                    create_post(&mut conn, post_id, &message.id.into());
+                                }
+                            },
+                            Err(why) => println!("Error sending post: {why:?}")
+                        }
                     }
                 }
             },
-            Err(why) => println!("Error sending post: {why:?}")
+            Err(why) => println!("db ded {why:?}")
         }
     }
 
