@@ -1,3 +1,5 @@
+#![feature(try_blocks)]
+
 use dbfn::*;
 use handlers::{comment::CommentHandler, image::ImageHandler, logging::LoggingHandler, user::UserHandler};
 use models::shimmie_json::{HandlerTrait, ShimmieSectionTypes};
@@ -18,6 +20,7 @@ pub mod schema;
 mod udp_client;
 mod models;
 mod handlers;
+mod errors;
 
 struct Handler;
 

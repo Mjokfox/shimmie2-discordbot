@@ -63,7 +63,7 @@ pub enum ShimmieSectionTypes {
     Delete
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct Fields {
     pub post_id: Option<i32>,
     pub username: Option<String>,
