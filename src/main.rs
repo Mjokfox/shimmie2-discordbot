@@ -1,5 +1,3 @@
-#![feature(try_blocks)]
-
 use dbfn::*;
 use handlers::{comment::CommentHandler, image::ImageHandler, logging::LoggingHandler, user::UserHandler};
 use models::shimmie_json::{HandlerTrait, ShimmieSectionTypes};
