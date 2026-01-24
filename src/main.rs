@@ -11,8 +11,6 @@ use std::env;
 use serenity::async_trait;
 use serenity::prelude::*;
 
-use core::net::SocketAddr;
-
 mod dbfn;
 pub mod schema;
 mod udp_client;
@@ -64,42 +62,36 @@ async fn main() -> std::io::Result<()> {
 
     let intents = GatewayIntents::GUILDS | GatewayIntents::GUILD_MESSAGES;
 
-    let client = Arc::new(Mutex::new(
-        Client::builder(&token, intents)
+    let mut client = Client::builder(&token, intents)
             .event_handler(Handler)
             .await
-            .expect("Err creating client"),
-    ));
+            .expect("Err creating client");
     
     let connection = establish_pool();
 
     let handler = Arc::new(JsonHandler {
-        http: client.lock().await.http.clone(), 
+        http: client.http.clone(), 
         db_pool: connection,
         ch,
         lch,
         server_url
     });
 
-    let udpclient = UdpClient::new(&udp_url, handler).await?;
+    let mut udpclient = UdpClient::new(&udp_url, handler).await?;
 
     let discord_task = {
-        let client_clone = client.clone();
         tokio::spawn(async move {
-            let mut client = client_clone.lock().await; 
             if let Err(why) = client.start().await {
                 println!("Client error: {why:?}");
             }
         })
     };
 
-    let udp_task = tokio::spawn(async move {
-        let _ = udpclient.run().await;
-    });
+    udpclient.run();
 
     tokio::signal::ctrl_c().await?;
     discord_task.abort();
-    udp_task.abort();
+    udpclient.stop();
 
     Ok(())
 }
@@ -111,9 +103,11 @@ struct JsonHandler {
     lch: ChannelId,
     server_url: String
 }
+
 #[async_trait]
 impl UdpHandler for JsonHandler {
-    async fn on_receive(&self, _len: usize, addr: SocketAddr, msg: &[u8]) {
+     
+    async fn on_receive(&self, msg: &[u8]) {
         match serde_json::from_slice::<ShimmieJson>(msg) {
             Ok(msg) => {
                 let handler = match msg.section {
@@ -129,7 +123,7 @@ impl UdpHandler for JsonHandler {
                 }
             }
             Err(e) => {
-                eprintln!("Failed to parse JSON from {}: {}", addr, e);
+                eprintln!("Failed to parse JSON: {}", e);
             }
         }
     }

@@ -1,17 +1,18 @@
 use std::sync::Arc;
 use serenity::async_trait;
 use tokio::net::UdpSocket;
+use tokio::sync::mpsc;
 use tokio::task;
-use core::net::SocketAddr;
 
 #[async_trait]
 pub trait UdpHandler: Send + Sync {
-    async fn on_receive(&self, len: usize, addr: SocketAddr, msg: &[u8]);
+    async fn on_receive(&self, msg: &[u8]);
 }
 
 pub struct UdpClient<H: UdpHandler + 'static> {
     socket: Arc<UdpSocket>,
-    handler: Arc<H>
+    handler: Arc<H>,
+    threads: Vec<tokio::task::JoinHandle<()>>
 }
 
 impl<H: UdpHandler + 'static> UdpClient<H> {
@@ -21,29 +22,39 @@ impl<H: UdpHandler + 'static> UdpClient<H> {
         Ok(Self {
             socket: Arc::new(socket),
             handler,
+            threads: Vec::<tokio::task::JoinHandle<()>>::default()
         })
     }
 
-    pub fn run(self) -> tokio::task::JoinHandle<()> {
-        let socket_clone = Arc::clone(&self.socket);
-        let handler_clone = Arc::clone(&self.handler);
-
-        task::spawn(async move {
+    pub fn run(&mut self) {
+        let (tx, mut rx) = mpsc::channel::<Vec<u8>>(20);
+        let socket = Arc::clone(&self.socket);
+        let handler = Arc::clone(&self.handler);
+        self.threads.push(task::spawn(async move {
             let mut buf = [0; 65535];
-
+            
             loop {
-                match socket_clone.recv_from(&mut buf).await {
-                    Ok((len, addr)) => {
-                        let received_data = buf[..len].to_vec();
-                        let handler_clone = Arc::clone(&handler_clone);
-
-                        tokio::spawn(async move {
-                            handler_clone.on_receive(len, addr, &received_data).await;
-                        });
+                if let Ok((len, _)) = socket.recv_from(&mut buf).await  {
+                    if let Err(e) = tx.send(buf[..len].to_vec()).await {
+                        eprintln!("Failed to push received data: {}", e);
                     }
-                    Err(e) => eprintln!("Error receiving data: {}", e),
+
                 }
             }
-        })
+        }));
+
+        self.threads.push(task::spawn(async move {
+            loop {
+                if let Some(msg) = rx.recv().await {
+                    handler.on_receive(&msg).await;
+                }
+            }
+        }));
+    }
+
+    pub fn stop(self) {
+        for t in self.threads {
+            t.abort();
+        }
     }
 }

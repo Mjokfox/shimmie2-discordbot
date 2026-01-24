@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use crate::errors::MjokError;
 use crate::{
     create_post, delete_comments_with_post_id, delete_post, get_comment_messages_from_post_id,
     get_message_from_post_id,
@@ -10,7 +9,7 @@ use crate::{
 use mime_guess::get_mime_extensions;
 use mime_serde_shim::Wrapper as Mime;
 use serenity::all::{
-    ChannelId, ChannelType, CreateEmbed, CreateMessage, EditMessage, Http, MessageId, Timestamp,
+    ChannelId, CreateEmbed, CreateMessage, EditMessage, Http, MessageId, Timestamp,
 };
 
 pub struct ImageHandler {
@@ -23,7 +22,7 @@ pub struct ImageHandler {
 impl HandlerTrait for ImageHandler {
     async fn create(&self, fields: Fields) {
         if let Err(why) = self.try_create(fields).await {
-            println!("db ded {why:?}");
+            eprintln!("post creation failed: {why:?}");
         }
     }
 
@@ -93,14 +92,14 @@ impl ImageHandler {
         } else {
             let builder = CreateMessage::new().embed(embed);
             let message = self.ch.send_message(&self.http, builder).await?;
-            let channel = self.ch.to_channel(&self.http).await?;
-            let guild_kind = channel
-                .guild()
-                .ok_or(MjokError::new_str("Guild Missing"))?
-                .kind;
-            if guild_kind == ChannelType::News {
-                message.crosspost(&self.http).await?;
-            }
+            // let channel = self.ch.to_channel(&self.http).await?;
+            // let guild_kind = channel
+            //     .guild()
+            //     .ok_or(FaFBotError::new_str("Guild Missing"))?
+            //     .kind;
+            // if guild_kind == ChannelType::News {
+            //     message.crosspost(&self.http).await?;
+            // }
             create_post(&mut conn, post_id, &message.id.into());
         }
         Ok(())
